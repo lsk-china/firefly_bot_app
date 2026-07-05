@@ -1,0 +1,372 @@
+package com.lsk.android.fireflyai.helper;
+
+import android.Manifest;
+import android.app.Activity;
+import android.content.Context;
+import android.content.pm.PackageManager;
+import android.graphics.Matrix;
+import android.graphics.Rect;
+import android.graphics.RectF;
+import android.graphics.SurfaceTexture;
+import android.hardware.camera2.CameraAccessException;
+import android.hardware.camera2.CameraCaptureSession;
+import android.hardware.camera2.CameraCharacteristics;
+import android.hardware.camera2.CameraDevice;
+import android.hardware.camera2.CameraManager;
+import android.hardware.camera2.CaptureRequest;
+import android.hardware.camera2.params.StreamConfigurationMap;
+import android.os.Handler;
+import android.os.HandlerThread;
+import android.util.Log;
+import android.util.Size;
+import android.view.Gravity;
+import android.view.Surface;
+import android.view.SurfaceHolder;
+import android.view.SurfaceView;
+import android.view.TextureView;
+import android.widget.FrameLayout;
+
+import androidx.annotation.NonNull;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
+
+import com.lsk.android.fireflyai.R;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
+
+public class CameraHelper {
+
+    private CameraManager cameraManager;
+    private CameraDevice cameraDevice;
+    private CameraCaptureSession captureSession;
+    private CaptureRequest.Builder previewRequestBuilder;
+
+    private SurfaceView cameraSurfaceView;
+
+    private HandlerThread backgroundThread;
+    private Handler backgroundHandler;
+
+    private final Activity owner;
+
+    private Size previewSize;
+
+    private Rect cropRegion;
+
+    private String cameraID;
+
+    private BiConsumer<CameraDevice, String> cameraOpenCallback;
+
+    private static final int REQUEST_CAMERA_PERMISSION = 200;
+    private static final String TAG = "CameraHelper";
+
+    public static interface Interceptor {
+        CameraDevice.StateCallback wrapDevStateCb(
+                CameraDevice.StateCallback original,
+                Handler handler
+        );
+        CameraCaptureSession.StateCallback wrapSessionStateCb(
+                CameraCaptureSession.StateCallback original,
+                Handler handler
+
+        );
+        List<Surface> provideCustomSurfaces(String cameraID, List<Surface> appSurfaces);
+        void onSessionConfigured(CameraCaptureSession session);
+        List<Surface> getSurfacesForRepeatingRequest();
+        void onPipelineStarted();
+    }
+
+    private Interceptor cameraInterceptor;
+
+    public CameraHelper(Activity owner) {
+        this.owner = owner;
+    }
+
+    public void setCameraInterceptor(Interceptor cameraInterceptor) {
+        this.cameraInterceptor = cameraInterceptor;
+    }
+
+    public void setCameraOpenCallback(BiConsumer<CameraDevice, String> cb) {
+        this.cameraOpenCallback = cb;
+    }
+
+    public boolean checkCameraPermission() {
+        return ContextCompat.checkSelfPermission(owner, Manifest.permission.CAMERA)
+                == PackageManager.PERMISSION_GRANTED;
+    }
+
+    public void closeCaptureSession() {
+        if (this.captureSession != null) {
+            this.captureSession.close();
+            this.captureSession = null;
+        }
+    }
+
+    private void createCaptureSession(Surface surface) {
+        try {
+            closeCaptureSession();
+            this.previewRequestBuilder =
+                    cameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
+            this.previewRequestBuilder.addTarget(surface);
+            if (cameraInterceptor != null) {
+                for (Surface target : cameraInterceptor.getSurfacesForRepeatingRequest()) {
+                    previewRequestBuilder.addTarget(target);
+                }
+            }
+
+            CameraCaptureSession.StateCallback sessionStateCb =
+                    new CameraCaptureSession.StateCallback() {
+                @Override
+                public void onConfigureFailed(
+                        @NonNull CameraCaptureSession cameraCaptureSession
+                ) {
+                    Log.e(TAG, "onConfigureFailed");
+                }
+
+                @Override
+                public void onConfigured(
+                        @NonNull CameraCaptureSession cameraCaptureSession
+                ) {
+                    if (cameraInterceptor != null) {
+                        cameraInterceptor.onSessionConfigured(cameraCaptureSession);
+                    }
+                    captureSession = cameraCaptureSession;
+                    previewRequestBuilder.set(
+                            CaptureRequest.CONTROL_AF_MODE,
+                            CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE
+                    );
+                    try {
+                        captureSession.setRepeatingRequest(
+                                previewRequestBuilder.build(),
+                                null,
+                                backgroundHandler
+                        );
+                    } catch (CameraAccessException e) {
+                        Log.e(TAG, "cannot start preview", e);
+                    }
+                    if (cameraInterceptor != null) {
+                        cameraInterceptor.onPipelineStarted();
+                    }
+                }
+
+                        @Override
+                        public void onActive(@NonNull CameraCaptureSession session) {
+                            if (cameraInterceptor != null) {
+                                cameraInterceptor.onPipelineStarted();
+                            }
+                        }
+                    };
+
+            List<Surface> appSurfaces = new ArrayList<>();
+            appSurfaces.add(surface);
+            List<Surface> allSurfaces = new ArrayList<>(appSurfaces);
+            if (cameraInterceptor != null) {
+                allSurfaces = cameraInterceptor.provideCustomSurfaces(cameraID, appSurfaces);
+            }
+            cameraDevice.createCaptureSession(
+                    allSurfaces,
+                    cameraInterceptor != null ?
+                            cameraInterceptor.wrapSessionStateCb(sessionStateCb, backgroundHandler) : sessionStateCb,
+                    backgroundHandler
+            );
+        } catch (CameraAccessException e) {
+            Log.e(TAG, "cannot create capture session", e);
+        }
+    }
+    public void initCamera() {
+        this.cameraManager = (CameraManager) owner.getSystemService(Context.CAMERA_SERVICE);
+        this.cameraSurfaceView = new SurfaceView(owner);
+        cameraSurfaceView.getHolder().addCallback(new SurfaceHolder.Callback() {
+            @Override
+            public void surfaceChanged(@NonNull SurfaceHolder surfaceHolder,
+                                       int format,
+                                       int width,
+                                       int height) {
+            }
+
+            @Override
+            public void surfaceCreated(@NonNull SurfaceHolder surfaceHolder) {
+                if (cameraDevice != null) {
+                    // Create camera preview session
+                    createCaptureSession(surfaceHolder.getSurface());
+                }
+            }
+
+            @Override
+            public void surfaceDestroyed(@NonNull SurfaceHolder surfaceHolder) {
+                closeCaptureSession();
+            }
+
+
+        });
+        int density = (int) owner.getResources().getDisplayMetrics().density;
+        int sizeW = 176 * density;
+        int sizeH = 144 * density;
+        FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(sizeW, sizeH);
+        params.gravity = Gravity.TOP | Gravity.END;
+        params.topMargin = 20 * density;
+        params.rightMargin = 20 * density;
+        cameraSurfaceView.setLayoutParams(params);
+        cameraSurfaceView.setZOrderOnTop(true);
+        cameraSurfaceView.setZOrderMediaOverlay(true);
+
+        FrameLayout unityLayout = owner.findViewById(android.R.id.content);
+        unityLayout.addView(cameraSurfaceView, params);
+    }
+
+    public void startBackgroundThread() {
+        this.backgroundThread = new HandlerThread("CameraBackground");
+        this.backgroundThread.start();
+        this.backgroundHandler = new Handler(this.backgroundThread.getLooper());
+    }
+
+    private String getFrontCameraID() {
+        try {
+            for (String id : cameraManager.getCameraIdList()) {
+                CameraCharacteristics cameraCharacteristics =
+                        cameraManager.getCameraCharacteristics(id);
+                Integer facing = cameraCharacteristics.get(CameraCharacteristics.LENS_FACING);
+                if (facing != null && facing == CameraCharacteristics.LENS_FACING_FRONT) {
+                    return id;
+                }
+            }
+        } catch (CameraAccessException e) {
+            Log.e(TAG, "Cannot access cameras", e);
+        }
+        return null;
+    }
+
+    private final CameraDevice.StateCallback stateCallback = new CameraDevice.StateCallback() {
+        @Override
+        public void onDisconnected(@NonNull CameraDevice camera) {
+            camera.close();
+            cameraDevice = null;
+        }
+
+        @Override
+        public void onError(@NonNull CameraDevice camera, int i) {
+            Log.e(TAG, "onError: " + i);
+            camera.close();
+            cameraDevice = null;
+        }
+
+        @Override
+        public void onOpened(@NonNull CameraDevice camera) {
+            cameraDevice = camera;
+            if (cameraOpenCallback != null) {
+                cameraOpenCallback.accept(camera, cameraID);
+            }
+            SurfaceHolder holder = cameraSurfaceView.getHolder();
+            if (holder.getSurface() != null && holder.getSurface().isValid()) {
+                createCaptureSession(holder.getSurface());
+            }
+        }
+    };
+
+    public void openCamera() {
+        try {
+            // Obtain Camera ID
+            cameraID = getFrontCameraID();
+            if (cameraID == null) {
+                Log.e(TAG, "Cannot find front camera");
+                return;
+            }
+            CameraCharacteristics characteristics =
+                    cameraManager.getCameraCharacteristics(cameraID);
+            StreamConfigurationMap map =
+                    characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
+            if (map != null) {
+                Log.i(TAG, "openCamera: supported sizes:");
+                for (Size size : map.getOutputSizes(SurfaceTexture.class)) {
+                    Log.d(TAG, "openCamera: " + size.getWidth() + "*" + size.getHeight());
+                }
+                previewSize = map.getOutputSizes(SurfaceTexture.class)[0];
+            } else {
+                Log.e(TAG, "openCamera: map is null");
+            }
+
+            if (ActivityCompat.checkSelfPermission(owner, Manifest.permission.CAMERA)
+                    == PackageManager.PERMISSION_GRANTED
+            ) {
+                cameraManager.openCamera(
+                        cameraID,
+                        cameraInterceptor != null ?
+                                cameraInterceptor.wrapDevStateCb(stateCallback, backgroundHandler) : stateCallback,
+                        backgroundHandler
+                );
+            }
+        } catch (CameraAccessException e) {
+            Log.e(TAG, "openCamera: ", e);
+        }
+    }
+
+    public void closeCamera() {
+        closeCaptureSession();
+        if (cameraDevice != null) {
+            cameraDevice.close();
+            cameraDevice = null;
+        }
+    }
+
+    public void stopBackgroundThread() {
+        if (backgroundThread != null) {
+            backgroundThread.quitSafely();
+            try {
+                backgroundThread.join();
+                backgroundThread = null;
+                backgroundHandler = null;
+            } catch (InterruptedException e) {
+                Log.e(TAG, "stopBackgroundThread: ", e);
+            }
+        }
+    }
+
+    public void startCamera() {
+        initCamera();
+        startBackgroundThread();
+        openCamera();
+    }
+
+    public void stopCamera() {
+        closeCamera();
+        stopBackgroundThread();
+    }
+
+    public void destroyCamera() {
+        stopCamera();
+        if (cameraSurfaceView != null) {
+            FrameLayout unityLayout = owner.findViewById(android.R.id.content);
+            unityLayout.removeView(cameraSurfaceView);
+            cameraSurfaceView = null;
+        }
+    }
+
+    public void resumeCamera() {
+        startBackgroundThread();
+        if (cameraDevice == null && checkCameraPermission()) {
+            openCamera();
+        }
+    }
+
+    public void handleRequestPermissionResult(int requestCode,
+                                              @NonNull String[] permissions,
+                                              @NonNull int[] grantResults
+    ) {
+        if (requestCode == REQUEST_CAMERA_PERMISSION) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                initCamera();
+                startBackgroundThread();
+                openCamera();
+            }
+        }
+    }
+
+    public void requestCameraPermission() {
+        ActivityCompat.requestPermissions(owner,
+                new String[]{ Manifest.permission.CAMERA },
+                REQUEST_CAMERA_PERMISSION
+        );
+    }
+}
