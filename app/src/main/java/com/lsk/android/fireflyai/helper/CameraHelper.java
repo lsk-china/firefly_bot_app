@@ -4,6 +4,8 @@ import android.Manifest;
 import android.app.Activity;
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.graphics.ImageFormat;
+import android.graphics.Paint;
 import android.graphics.SurfaceTexture;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCaptureSession;
@@ -11,7 +13,10 @@ import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CameraManager;
 import android.hardware.camera2.CaptureRequest;
+import android.hardware.camera2.TotalCaptureResult;
 import android.hardware.camera2.params.StreamConfigurationMap;
+import android.media.Image;
+import android.media.ImageReader;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.util.Log;
@@ -26,7 +31,10 @@ import androidx.annotation.NonNull;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
+import java.nio.ByteBuffer;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.function.Consumer;
 
 public class CameraHelper {
 
@@ -43,6 +51,7 @@ public class CameraHelper {
     private final Activity owner;
 
     private String cameraID;
+    private ImageReader imageReader;
 
     private static final int REQUEST_CAMERA_PERMISSION = 200;
     private static final String TAG = "CameraHelper";
@@ -66,6 +75,10 @@ public class CameraHelper {
     private void createCaptureSession(Surface surface) {
         try {
             closeCaptureSession();
+            if (imageReader == null) {
+                imageReader = ImageReader.newInstance(1280, 720, ImageFormat.JPEG, 2);
+            }
+
             this.previewRequestBuilder =
                     cameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
             this.previewRequestBuilder.addTarget(surface);
@@ -101,7 +114,7 @@ public class CameraHelper {
                     };
 
             cameraDevice.createCaptureSession(
-                    Collections.singletonList(surface),
+                    Arrays.asList(surface, imageReader.getSurface()),
                     sessionStateCb,
                     backgroundHandler
             );
@@ -233,6 +246,10 @@ public class CameraHelper {
 
     public void closeCamera() {
         closeCaptureSession();
+        if (imageReader != null) {
+            imageReader.close();
+            imageReader = null;
+        }
         if (cameraDevice != null) {
             cameraDevice.close();
             cameraDevice = null;
@@ -288,5 +305,43 @@ public class CameraHelper {
                 new String[]{ Manifest.permission.CAMERA },
                 REQUEST_CAMERA_PERMISSION
         );
+    }
+
+    public void captureImage(Consumer<ByteBuffer> callback) {
+        if (cameraDevice == null || captureSession == null || imageReader == null) {
+            Log.e(TAG, "captureImage: camera is not ready!");
+            return;
+        }
+        imageReader.setOnImageAvailableListener(imageReader -> {
+            Image image = imageReader.acquireLatestImage();
+            callback.accept(image.getPlanes()[0].getBuffer());
+            image.close();
+        }, backgroundHandler);
+        try {
+            final CaptureRequest.Builder captureBuilder = cameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE);
+            captureBuilder.addTarget(imageReader.getSurface());
+            captureBuilder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
+            captureSession.stopRepeating();
+            captureSession.capture(captureBuilder.build(), new CameraCaptureSession.CaptureCallback() {
+                @Override
+                public void onCaptureCompleted(@NonNull CameraCaptureSession session, @NonNull CaptureRequest request, @NonNull TotalCaptureResult result) {
+                    super.onCaptureCompleted(session, request, result);
+                    Log.i(TAG, "onCaptureCompleted: successful captured, resuming preview");
+                    resumePreview();
+                }
+            }, backgroundHandler);
+        } catch (Exception e) {
+            Log.e(TAG, "captureImage: failed to capture", e);
+        }
+    }
+
+    private void resumePreview() {
+        try {
+            if (captureSession != null && previewRequestBuilder != null) {
+                captureSession.setRepeatingRequest(previewRequestBuilder.build(), null, backgroundHandler);
+            }
+        } catch (CameraAccessException e) {
+            Log.e(TAG, "resumePreview: cannot resume preview", e);
+        }
     }
 }
