@@ -76,7 +76,7 @@ public class CameraHelper {
         try {
             closeCaptureSession();
             if (imageReader == null) {
-                imageReader = ImageReader.newInstance(1280, 720, ImageFormat.JPEG, 2);
+                imageReader = ImageReader.newInstance(640, 480, ImageFormat.JPEG, 2);
             }
 
             this.previewRequestBuilder =

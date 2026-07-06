@@ -4,12 +4,17 @@ import android.os.Bundle;
 
 import com.lsk.android.fireflyai.helper.CameraHelper;
 import com.lsk.android.fireflyai.helper.IntervalHelper;
+import com.lsk.android.fireflyai.task.PostImageTask;
 import com.unity3d.player.UnityPlayerActivity;
 
 public class MainActivity extends UnityPlayerActivity {
     private static final String TAG = "MainActivity";
-    private CameraHelper cameraHelper;
+    // TODO: Replace with real IP
+    private static final String BASE_URL = "ws://";
+    private static final int POST_IMAGE_INTERVAL = 2000; // post image every 2 seconds;
 
+    private CameraHelper cameraHelper;
+    private PostImageTask postImageTask;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -21,6 +26,8 @@ public class MainActivity extends UnityPlayerActivity {
             return;
         }
         cameraHelper.startCamera();
+        this.postImageTask = new PostImageTask(cameraHelper, BASE_URL);
+        IntervalHelper.setInterval(postImageTask, POST_IMAGE_INTERVAL);
     }
 
     /*
@@ -50,6 +57,7 @@ public class MainActivity extends UnityPlayerActivity {
 
     @Override
     protected void onDestroy() {
+        postImageTask.cleanup();
         super.onDestroy();
     }
 
