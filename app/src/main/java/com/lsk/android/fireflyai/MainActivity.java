@@ -2,6 +2,8 @@ package com.lsk.android.fireflyai;
 
 import android.os.Bundle;
 
+import androidx.annotation.NonNull;
+
 import com.lsk.android.fireflyai.helper.CameraHelper;
 import com.lsk.android.fireflyai.helper.IntervalHelper;
 import com.lsk.android.fireflyai.task.PostImageTask;
@@ -50,7 +52,11 @@ public class MainActivity extends UnityPlayerActivity {
     }
 
     @Override
-    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] results) {
+    public void onRequestPermissionsResult(
+            int requestCode,
+            @NonNull String[] permissions,
+            @NonNull int[] results
+    ) {
         super.onRequestPermissionsResult(requestCode, permissions, results);
         cameraHelper.handleRequestPermissionResult(requestCode, permissions, results);
     }
