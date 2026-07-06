@@ -3,6 +3,7 @@ package com.lsk.android.fireflyai;
 import android.os.Bundle;
 
 import com.lsk.android.fireflyai.helper.CameraHelper;
+import com.lsk.android.fireflyai.helper.IntervalHelper;
 import com.unity3d.player.UnityPlayerActivity;
 
 public class MainActivity extends UnityPlayerActivity {
@@ -22,16 +23,21 @@ public class MainActivity extends UnityPlayerActivity {
         cameraHelper.startCamera();
     }
 
+    /*
+        Resume IntervalHelper after CameraHelper, and pause it after CameraHelper.
+        So when the capture task is run, the camera is always available.
+     */
 
     @Override
     protected void onResume() {
         super.onResume();
         cameraHelper.resumeCamera();
-
+        IntervalHelper.resume();
     }
 
     @Override
     protected void onPause() {
+        IntervalHelper.pause();
         cameraHelper.stopCamera();
         super.onPause();
     }
