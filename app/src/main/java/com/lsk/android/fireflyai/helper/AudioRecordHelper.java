@@ -1,6 +1,8 @@
 package com.lsk.android.fireflyai.helper;
 
 import android.Manifest;
+import android.annotation.SuppressLint;
+import android.app.Activity;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.media.AudioFormat;
@@ -9,6 +11,7 @@ import android.media.MediaRecorder;
 import android.util.Log;
 
 import androidx.annotation.RequiresPermission;
+import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -16,6 +19,7 @@ import java.util.function.BiConsumer;
 
 public class AudioRecordHelper {
     private static final String TAG = "AudioRecordHelper";
+    private static final int REQUEST_CODE = 201;
 
     // ---- CONFIG ----
     private static final int SAMPLE_RATE = 32000;
@@ -51,6 +55,27 @@ public class AudioRecordHelper {
     public boolean checkMicrophonePermission(Context owner) {
         return ContextCompat.checkSelfPermission(owner, Manifest.permission.RECORD_AUDIO)
                 == PackageManager.PERMISSION_GRANTED;
+    }
+
+    public void requestForMicrophonePermission(Activity owner) {
+        ActivityCompat.requestPermissions(
+                owner,
+                new String[] {Manifest.permission.RECORD_AUDIO},
+                REQUEST_CODE
+        );
+    }
+
+    @SuppressLint("MissingPermission")
+    public void handlePermissionRequestResult(
+            int requestCode,
+            String[] permissions,
+            int[] results
+    ) {
+        if (requestCode == REQUEST_CODE) {
+            if (results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED) {
+                initialize();
+            }
+        }
     }
 
     public void startRecording() {
