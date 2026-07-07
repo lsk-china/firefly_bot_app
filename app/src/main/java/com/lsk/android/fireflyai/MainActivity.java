@@ -9,6 +9,7 @@ import com.lsk.android.fireflyai.helper.CameraHelper;
 import com.lsk.android.fireflyai.helper.IntervalHelper;
 import com.lsk.android.fireflyai.task.PostAudioTask;
 import com.lsk.android.fireflyai.task.PostImageTask;
+import com.unity3d.player.UnityPlayer;
 import com.unity3d.player.UnityPlayerActivity;
 
 public class MainActivity extends UnityPlayerActivity {
@@ -41,10 +42,12 @@ public class MainActivity extends UnityPlayerActivity {
         if (init) {
             cameraHelper.startCamera();
             audioRecordHelper.initialize();
-            this.postImageTask = new PostImageTask(cameraHelper, BASE_URL);
-            this.postAudioTask = new PostAudioTask(audioRecordHelper, BASE_URL);
-            IntervalHelper.setInterval(postImageTask, POST_IMAGE_INTERVAL);
+            //this.postImageTask = new PostImageTask(cameraHelper, BASE_URL);
+            //this.postAudioTask = new PostAudioTask(audioRecordHelper, BASE_URL);
+            //IntervalHelper.setInterval(postImageTask, POST_IMAGE_INTERVAL);
+
         }
+        UnityPlayer.UnitySendMessage("MyCharacter", "SetVisibility", "hide");
     }
 
     /*
@@ -56,15 +59,15 @@ public class MainActivity extends UnityPlayerActivity {
     protected void onResume() {
         super.onResume();
         cameraHelper.resumeCamera();
-        postAudioTask.start();
-        IntervalHelper.resume();
+        //postAudioTask.start();
+        //IntervalHelper.resume();
     }
 
     @Override
     protected void onPause() {
-        IntervalHelper.pause();
+        //IntervalHelper.pause();
         cameraHelper.stopCamera();
-        postAudioTask.stop();
+        ///postAudioTask.stop();
         super.onPause();
     }
 
@@ -76,13 +79,13 @@ public class MainActivity extends UnityPlayerActivity {
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, results);
         cameraHelper.handleRequestPermissionResult(requestCode, permissions, results);
-        audioRecordHelper.handlePermissionRequestResult(requestCode, permissions, results);
+        //audioRecordHelper.handlePermissionRequestResult(requestCode, permissions, results);
     }
 
     @Override
     protected void onDestroy() {
-        postImageTask.cleanup();
-        postAudioTask.destroy();
+        //postImageTask.cleanup();
+        //postAudioTask.destroy();
         super.onDestroy();
     }
 
