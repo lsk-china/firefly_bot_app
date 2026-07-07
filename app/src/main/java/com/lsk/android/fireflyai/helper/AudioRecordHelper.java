@@ -22,9 +22,9 @@ public class AudioRecordHelper {
     private static final int CHANNEL_CONFIG = AudioFormat.CHANNEL_IN_MONO;
     private static final int AUDIO_FORMAT = AudioFormat.ENCODING_PCM_16BIT;
 
+    private final AtomicBoolean isRecording = new AtomicBoolean(false);
     private AudioRecord audioRecord;
     private BiConsumer<byte[], Integer> recordCb;
-    private AtomicBoolean isRecording;
     private Thread recordThread;
     private int minBufSize;
 
@@ -45,7 +45,6 @@ public class AudioRecordHelper {
         if (audioRecord.getState() !=  AudioRecord.STATE_INITIALIZED) {
             Log.e(TAG, "initialize: audio hardware initialization failed: "
                     + audioRecord.getState());
-            return;
         }
     }
 
