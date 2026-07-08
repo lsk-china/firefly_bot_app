@@ -10,13 +10,13 @@ import java.nio.ByteBuffer;
 public class PostImageTask implements Runnable {
     private static final String TAG = "PostImageTask";
     private final CameraHelper cameraHelper;
-    private WebsocketHelper wsHelper;
+    private final WebsocketHelper wsHelper;
 
     public PostImageTask(CameraHelper cameraHelper, String baseUrl) {
         this.cameraHelper = cameraHelper;
         // Endpoint: ws://ip:port/postImage
         this.wsHelper = new WebsocketHelper(baseUrl + "/postImage");
-        this.wsHelper.connect();
+        this.wsHelper.start();
     }
 
     @Override
@@ -29,6 +29,6 @@ public class PostImageTask implements Runnable {
     }
 
     public void cleanup() {
-        this.wsHelper.close();
+        this.wsHelper.stop();
     }
 }

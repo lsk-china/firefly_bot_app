@@ -13,7 +13,6 @@ public class PostAudioTask {
     public PostAudioTask(AudioRecordHelper audioRecordHelper, String baseURL) {
         this.audioRecordHelper = audioRecordHelper;
         this.websocketHelper = new WebsocketHelper(baseURL + ENDPOINT);
-        this.websocketHelper.connect();
         this.audioRecordHelper.setRecordCb((data, length) -> {
             byte[] dataToSend;
             // Remove trailing zeros if needed
@@ -29,6 +28,7 @@ public class PostAudioTask {
 
     public void start() {
         this.audioRecordHelper.startRecording();
+        this.websocketHelper.start();
     }
 
     public void stop() {
@@ -37,7 +37,7 @@ public class PostAudioTask {
 
     public void destroy() {
         this.audioRecordHelper.destroy();
-        this.websocketHelper.close();
+        this.websocketHelper.stop();
     }
 
 }

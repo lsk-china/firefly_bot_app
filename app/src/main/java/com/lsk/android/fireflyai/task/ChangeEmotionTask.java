@@ -17,13 +17,13 @@ public class ChangeEmotionTask {
     }
 
     public void start() {
-        this.websocketHelper.connect();
         this.websocketHelper.setTextHandler(cmd -> {
             owner.runOnUiThread(() -> UnityPlayer.UnitySendMessage("MyCharacter", "SetEmotion", cmd));
         });
+        this.websocketHelper.start();
     }
 
     public void stop() {
-        this.websocketHelper.close();
+        this.websocketHelper.stop();
     }
 }
