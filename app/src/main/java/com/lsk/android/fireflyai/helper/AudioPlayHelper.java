@@ -92,4 +92,12 @@ public class AudioPlayHelper {
             }
         }
     }
+
+    public void putData(byte[] data) {
+        if (this.isPlaying.get() && data != null) {
+            byte[] dataCopy = new byte[data.length];
+            System.arraycopy(data, 0, dataCopy, 0, data.length);
+            this.audioDataQueue.offer(dataCopy);
+        }
+    }
 }
