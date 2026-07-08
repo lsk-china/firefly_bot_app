@@ -7,6 +7,8 @@ import androidx.annotation.NonNull;
 import com.lsk.android.fireflyai.helper.AudioRecordHelper;
 import com.lsk.android.fireflyai.helper.CameraHelper;
 import com.lsk.android.fireflyai.helper.IntervalHelper;
+import com.lsk.android.fireflyai.task.ChangeEmotionTask;
+import com.lsk.android.fireflyai.task.PlayAudioTask;
 import com.lsk.android.fireflyai.task.PostAudioTask;
 import com.lsk.android.fireflyai.task.PostImageTask;
 import com.unity3d.player.UnityPlayer;
@@ -23,6 +25,8 @@ public class MainActivity extends UnityPlayerActivity {
 
     private PostImageTask postImageTask;
     private PostAudioTask postAudioTask;
+    private ChangeEmotionTask changeEmotionTask;
+    private PlayAudioTask playAudioTask;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -42,9 +46,13 @@ public class MainActivity extends UnityPlayerActivity {
         if (init) {
             cameraHelper.startCamera();
             audioRecordHelper.initialize();
-            //this.postImageTask = new PostImageTask(cameraHelper, BASE_URL);
-            //this.postAudioTask = new PostAudioTask(audioRecordHelper, BASE_URL);
-            //IntervalHelper.setInterval(postImageTask, POST_IMAGE_INTERVAL);
+            this.postImageTask = new PostImageTask(cameraHelper, BASE_URL);
+            this.postAudioTask = new PostAudioTask(audioRecordHelper, BASE_URL);
+            this.changeEmotionTask = new ChangeEmotionTask(this, BASE_URL);
+            this.playAudioTask = new PlayAudioTask(BASE_URL);
+            IntervalHelper.setInterval(postImageTask, POST_IMAGE_INTERVAL);
+            changeEmotionTask.start();
+            playAudioTask.start();
 
         }
         UnityPlayer.UnitySendMessage("MyCharacter", "SetVisibility", "hide");
@@ -59,15 +67,15 @@ public class MainActivity extends UnityPlayerActivity {
     protected void onResume() {
         super.onResume();
         cameraHelper.resumeCamera();
-        //postAudioTask.start();
-        //IntervalHelper.resume();
+        postAudioTask.start();
+        IntervalHelper.resume();
     }
 
     @Override
     protected void onPause() {
-        //IntervalHelper.pause();
+        IntervalHelper.pause();
         cameraHelper.stopCamera();
-        ///postAudioTask.stop();
+        postAudioTask.stop();
         super.onPause();
     }
 
@@ -79,13 +87,15 @@ public class MainActivity extends UnityPlayerActivity {
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, results);
         cameraHelper.handleRequestPermissionResult(requestCode, permissions, results);
-        //audioRecordHelper.handlePermissionRequestResult(requestCode, permissions, results);
+        audioRecordHelper.handlePermissionRequestResult(requestCode, permissions, results);
     }
 
     @Override
     protected void onDestroy() {
-        //postImageTask.cleanup();
-        //postAudioTask.destroy();
+        postImageTask.cleanup();
+        postAudioTask.destroy();
+        changeEmotionTask.stop();
+        playAudioTask.stop();
         super.onDestroy();
     }
 
