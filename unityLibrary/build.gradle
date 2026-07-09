@@ -40,6 +40,26 @@ def getSdkDir() {
     return local.getProperty('sdk.dir')
 }
 
+def unityNativeLibNames = [
+    'lib_burst_generated.so',
+    'libil2cpp.so',
+    'libmain.so',
+    'libunity.so',
+]
+def generatedUnityJniLibsDir = "${buildDir}/generated/unityJniLibs"
+
+tasks.register('syncUnityNativeLibs', Sync) {
+    into generatedUnityJniLibsDir
+    from('src/main/armeabi-v7a') {
+        include unityNativeLibNames
+        into 'armeabi-v7a'
+    }
+    from('src/main/arm64-v8a') {
+        include unityNativeLibNames
+        into 'arm64-v8a'
+    }
+}
+
 def BuildIl2Cpp(String workingDir, String configuration, String architecture, String abi, String[] staticLibraries) {
     def commandLineArgs = []
     commandLineArgs.add("--compile-cpp")
@@ -82,14 +102,19 @@ android {
         }
     }
     afterEvaluate {
-        if (project(':unityLibrary').tasks.findByName('mergeDebugJniLibFolders'))
+        if (project(':unityLibrary').tasks.findByName('mergeDebugJniLibFolders')) {
             project(':unityLibrary').mergeDebugJniLibFolders.dependsOn BuildIl2CppTask
-        if (project(':unityLibrary').tasks.findByName('mergeReleaseJniLibFolders'))
+            project(':unityLibrary').mergeDebugJniLibFolders.dependsOn syncUnityNativeLibs
+        }
+        if (project(':unityLibrary').tasks.findByName('mergeReleaseJniLibFolders')) {
             project(':unityLibrary').mergeReleaseJniLibFolders.dependsOn BuildIl2CppTask
+            project(':unityLibrary').mergeReleaseJniLibFolders.dependsOn syncUnityNativeLibs
+        }
     }
     sourceSets {
         main {
-            jni.srcDirs = ["src/main/Il2CppOutputProject"]
+            jni.srcDirs = []
+            jniLibs.srcDirs = [generatedUnityJniLibsDir]
         }
     }
     androidResources {
@@ -100,6 +125,3 @@ android {
         abortOnError false
     }
 }
-
-
-

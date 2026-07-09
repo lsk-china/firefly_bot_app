@@ -5,7 +5,6 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.graphics.ImageFormat;
-import android.graphics.Paint;
 import android.graphics.SurfaceTexture;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCaptureSession;
@@ -123,6 +122,9 @@ public class CameraHelper {
         }
     }
     public void initCamera() {
+        if (this.cameraSurfaceView != null) {
+            return;
+        }
         this.cameraManager = (CameraManager) owner.getSystemService(Context.CAMERA_SERVICE);
         this.cameraSurfaceView = new SurfaceView(owner);
         cameraSurfaceView.getHolder().addCallback(new SurfaceHolder.Callback() {
@@ -148,13 +150,13 @@ public class CameraHelper {
 
 
         });
-        int density = (int) owner.getResources().getDisplayMetrics().density;
-        int sizeW = 176 * density;
-        int sizeH = 144 * density;
+        float density = owner.getResources().getDisplayMetrics().density;
+        int sizeW = Math.round(176 * density);
+        int sizeH = Math.round(144 * density);
         FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(sizeW, sizeH);
         params.gravity = Gravity.TOP | Gravity.END;
-        params.topMargin = 20 * density;
-        params.rightMargin = 20 * density;
+        params.topMargin = Math.round(20 * density);
+        params.rightMargin = Math.round(20 * density);
         cameraSurfaceView.setLayoutParams(params);
         cameraSurfaceView.setZOrderOnTop(true);
         cameraSurfaceView.setZOrderMediaOverlay(true);
@@ -164,6 +166,9 @@ public class CameraHelper {
     }
 
     public void startBackgroundThread() {
+        if (this.backgroundThread != null) {
+            return;
+        }
         this.backgroundThread = new HandlerThread("CameraBackground");
         this.backgroundThread.start();
         this.backgroundHandler = new Handler(this.backgroundThread.getLooper());
@@ -211,6 +216,12 @@ public class CameraHelper {
 
     public void openCamera() {
         try {
+            if (cameraSurfaceView == null) {
+                initCamera();
+            }
+            if (backgroundHandler == null) {
+                startBackgroundThread();
+            }
             // Obtain Camera ID
             cameraID = getFrontCameraID();
             if (cameraID == null) {
@@ -272,7 +283,9 @@ public class CameraHelper {
     public void startCamera() {
         initCamera();
         startBackgroundThread();
-        openCamera();
+        if (cameraDevice == null) {
+            openCamera();
+        }
     }
 
     public void stopCamera() {
@@ -281,6 +294,7 @@ public class CameraHelper {
     }
 
     public void resumeCamera() {
+        initCamera();
         startBackgroundThread();
         if (cameraDevice == null && checkCameraPermission()) {
             openCamera();
@@ -293,9 +307,7 @@ public class CameraHelper {
     ) {
         if (requestCode == REQUEST_CAMERA_PERMISSION) {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                initCamera();
-                startBackgroundThread();
-                openCamera();
+                startCamera();
             }
         }
     }

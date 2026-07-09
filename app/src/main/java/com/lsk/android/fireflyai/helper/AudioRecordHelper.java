@@ -79,7 +79,13 @@ public class AudioRecordHelper {
     }
 
     public void startRecording() {
-        this.isRecording.set(true);
+        if (this.audioRecord == null) {
+            Log.e(TAG, "startRecording: audioRecord is not initialized");
+            return;
+        }
+        if (!this.isRecording.compareAndSet(false, true)) {
+            return;
+        }
         this.audioRecord.startRecording();
         this.recordThread = new Thread(() -> {
             byte[] buffer = new byte[minBufSize];
