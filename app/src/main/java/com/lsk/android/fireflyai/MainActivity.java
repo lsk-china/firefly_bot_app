@@ -36,6 +36,7 @@ public class MainActivity extends UnityPlayerActivity {
     private static final String PREF_BASE_URL = "base_url";
     private static final String DEFAULT_BASE_URL = "ws://";
     private static final int POST_IMAGE_INTERVAL = 2000; // post image every 2 seconds;
+    private static final long CONNECTION_TOAST_INTERVAL_MS = 5000;
 
     private CameraHelper cameraHelper;
     private AudioRecordHelper audioRecordHelper;
@@ -52,6 +53,7 @@ public class MainActivity extends UnityPlayerActivity {
     private boolean permissionRequestInFlight = false;
     private boolean permissionRequestAttempted = false;
     private String baseUrl = "";
+    private long lastConnectionToastMs = 0;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -158,6 +160,17 @@ public class MainActivity extends UnityPlayerActivity {
         dialog.show();
     }
 
+    private void showConnectionStatus(String message) {
+        runOnUiThread(() -> {
+            long now = System.currentTimeMillis();
+            if (now - lastConnectionToastMs < CONNECTION_TOAST_INTERVAL_MS) {
+                return;
+            }
+            lastConnectionToastMs = now;
+            Toast.makeText(this, message, Toast.LENGTH_LONG).show();
+        });
+    }
+
     private void requestMissingPermissionsIfNeeded() {
         if (hasAllRequiredPermissions()
                 || permissionRequestInFlight
@@ -210,10 +223,10 @@ public class MainActivity extends UnityPlayerActivity {
 
         startCameraIfPermissionGranted();
         audioRecordHelper.initialize();
-        this.postImageTask = new PostImageTask(cameraHelper, baseUrl);
-        this.postAudioTask = new PostAudioTask(audioRecordHelper, baseUrl);
-        this.changeEmotionTask = new ChangeEmotionTask(this, baseUrl);
-        this.playAudioTask = new PlayAudioTask(baseUrl);
+        this.postImageTask = new PostImageTask(cameraHelper, baseUrl, this::showConnectionStatus);
+        this.postAudioTask = new PostAudioTask(audioRecordHelper, baseUrl, this::showConnectionStatus);
+        this.changeEmotionTask = new ChangeEmotionTask(this, baseUrl, this::showConnectionStatus);
+        this.playAudioTask = new PlayAudioTask(baseUrl, this::showConnectionStatus);
         IntervalHelper.setInterval(postImageTask, POST_IMAGE_INTERVAL);
         postAudioTask.start();
         changeEmotionTask.start();
