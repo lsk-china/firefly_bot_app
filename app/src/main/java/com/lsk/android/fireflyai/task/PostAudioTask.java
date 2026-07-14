@@ -3,6 +3,8 @@ package com.lsk.android.fireflyai.task;
 import com.lsk.android.fireflyai.helper.AudioRecordHelper;
 import com.lsk.android.fireflyai.helper.WebsocketHelper;
 
+import java.util.function.Consumer;
+
 public class PostAudioTask {
     private static final String TAG = "PostAudioTask";
     private static final String ENDPOINT = "/microphone";
@@ -11,8 +13,15 @@ public class PostAudioTask {
     private final WebsocketHelper websocketHelper;
 
     public PostAudioTask(AudioRecordHelper audioRecordHelper, String baseURL) {
+        this(audioRecordHelper, baseURL, null);
+    }
+
+    public PostAudioTask(AudioRecordHelper audioRecordHelper,
+                         String baseURL,
+                         Consumer<String> statusHandler) {
         this.audioRecordHelper = audioRecordHelper;
         this.websocketHelper = new WebsocketHelper(baseURL + ENDPOINT);
+        this.websocketHelper.setStatusHandler(statusHandler);
         this.audioRecordHelper.setRecordCb((data, length) -> {
             byte[] dataToSend;
             // Remove trailing zeros if needed

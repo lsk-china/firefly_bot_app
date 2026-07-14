@@ -2,7 +2,6 @@ package com.lsk.android.fireflyai.helper;
 
 import android.media.AudioAttributes;
 import android.media.AudioFormat;
-import android.media.AudioRecord;
 import android.media.AudioTrack;
 import android.util.Log;
 
@@ -24,7 +23,7 @@ public class AudioPlayHelper {
     private AtomicBoolean isPlaying = new AtomicBoolean(false);
 
     public AudioPlayHelper() {
-        minBufSize = AudioRecord.getMinBufferSize(SAMPLE_RATE, CHANNEL_CONFIG, AUDIO_FORMAT);
+        minBufSize = AudioTrack.getMinBufferSize(SAMPLE_RATE, CHANNEL_CONFIG, AUDIO_FORMAT);
         if (minBufSize < 0) {
             Log.e(TAG, "initialize: cannot get min buffer size: " + minBufSize);
             return;
@@ -47,11 +46,18 @@ public class AudioPlayHelper {
     }
 
     public void start() {
-        if (audioTrack.getState() != AudioTrack.STATE_INITIALIZED) {
-            Log.e(TAG, "AudioPlayHelper: AudioTrack init failed: " + audioTrack.getState());
+        if (audioTrack == null) {
+            Log.e(TAG, "start: audioTrack is not initialized");
             return;
         }
-        isPlaying.set(true);
+        if (!isPlaying.compareAndSet(false, true)) {
+            return;
+        }
+        if (audioTrack.getState() != AudioTrack.STATE_INITIALIZED) {
+            Log.e(TAG, "AudioPlayHelper: AudioTrack init failed: " + audioTrack.getState());
+            isPlaying.set(false);
+            return;
+        }
         audioDataQueue.clear();
         audioTrack.play();
         playThread = new Thread(() -> {
@@ -71,8 +77,11 @@ public class AudioPlayHelper {
     }
 
     public void stop() {
-        isPlaying.set(false);
+        if (!isPlaying.compareAndSet(true, false)) {
+            return;
+        }
         if (this.playThread != null) {
+            this.playThread.interrupt();
             try {
                 this.playThread.join();
             } catch (InterruptedException e) {
@@ -82,7 +91,9 @@ public class AudioPlayHelper {
         }
         if (this.audioTrack != null) {
             try {
-                this.audioTrack.stop();
+                if (this.audioTrack.getPlayState() != AudioTrack.PLAYSTATE_STOPPED) {
+                    this.audioTrack.stop();
+                }
                 this.audioTrack.release();
             } catch (IllegalStateException e) {
                 Log.e(TAG, "stop: cannot stop audioTrack", e);

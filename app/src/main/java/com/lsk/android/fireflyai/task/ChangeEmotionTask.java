@@ -5,6 +5,8 @@ import android.app.Activity;
 import com.lsk.android.fireflyai.helper.WebsocketHelper;
 import com.unity3d.player.UnityPlayer;
 
+import java.util.function.Consumer;
+
 public class ChangeEmotionTask {
     private static final String TAG = "ChangeEmotionTask";
     private static final String ENDPOINT = "/emotion";
@@ -12,8 +14,13 @@ public class ChangeEmotionTask {
     private final WebsocketHelper websocketHelper;
 
     public ChangeEmotionTask(Activity owner, String baseURL) {
+        this(owner, baseURL, null);
+    }
+
+    public ChangeEmotionTask(Activity owner, String baseURL, Consumer<String> statusHandler) {
         this.owner = owner;
         this.websocketHelper = new WebsocketHelper(baseURL + ENDPOINT);
+        this.websocketHelper.setStatusHandler(statusHandler);
     }
 
     public void start() {

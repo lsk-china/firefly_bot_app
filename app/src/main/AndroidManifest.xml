@@ -22,17 +22,6 @@
         <meta-data android:name="com.google.ar.core" android:value="required" />
         <activity
             android:name=".MainActivity"
-            android:exported="true"
-            android:screenOrientation="fullSensor">
-
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
-
-        <activity
-            android:name="com.unity3d.player.UnityPlayerActivity"
             android:configChanges="mcc|mnc|locale|touchscreen|keyboard|keyboardHidden|navigation|orientation|screenLayout|uiMode|screenSize|smallestScreenSize|fontScale|layoutDirection|density"
             android:exported="true"
             android:hardwareAccelerated="false"
@@ -40,10 +29,10 @@
             android:resizeableActivity="true"
             android:screenOrientation="fullUser"
             android:theme="@style/UnityThemeSelector">
-            <intent-filter>
-                <category android:name="android.intent.category.LAUNCHER" />
 
+            <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
             <meta-data
@@ -65,6 +54,7 @@
                 android:minWidth="400px"
                 android:minHeight="300px" />
         </activity>
+
     </application>
 
 </manifest>
